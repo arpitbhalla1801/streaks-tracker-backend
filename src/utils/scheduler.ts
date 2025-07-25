@@ -7,51 +7,26 @@ import { checkForGFGStreak } from '../platforms/gfg';
 import { checkForGitHubStreak } from '../platforms/github';
 
 cron.schedule('0 23 * * *', async () => {
-    const username = process.env.LEETCODE_USERNAME;
-    if (username) {
-        const completed = await checkForLeetCodeStreak(username);
-        if (!completed) {
-            sendReminderEmail('LeetCode', username);
-        }
-    }
-});
+    console.log('Running daily streak checks...');
 
-cron.schedule('0 23 * * *', async () => {
-    const username = process.env.CODEFORCES_USERNAME;
-    if (username) {
-        const completed = await checkForCodeforcesStreak(username);
-        if (!completed) {
-            sendReminderEmail('Codeforces', username);
-        }
-    }
-});
+    const platforms = [
+        { name: 'LeetCode', username: process.env.LEETCODE_USERNAME, checker: checkForLeetCodeStreak },
+        { name: 'Codeforces', username: process.env.CODEFORCES_USERNAME, checker: checkForCodeforcesStreak },
+        { name: 'CodeChef', username: process.env.CODECHEF_USERNAME, checker: checkForCodeChefStreak },
+        { name: 'GeeksforGeeks', username: process.env.GFG_USERNAME, checker: checkForGFGStreak },
+        { name: 'GitHub', username: process.env.GITHUB_USERNAME, checker: checkForGitHubStreak },
+    ];
 
-cron.schedule('0 23 * * *', async () => {
-    const username = process.env.CODECHEF_USERNAME;
-    if (username) {
-        const completed = await checkForCodeChefStreak(username);
-        if (!completed) {
-            sendReminderEmail('CodeChef', username);
-        }
-    }
-});
-
-cron.schedule('0 23 * * *', async () => {
-    const username = process.env.GFG_USERNAME;
-    if (username) {
-        const completed = await checkForGFGStreak(username);
-        if (!completed) {
-            sendReminderEmail('GeeksforGeeks', username);
-        }
-    }
-});
-
-cron.schedule('0 23 * * *', async () => {
-    const username = process.env.GITHUB_USERNAME;
-    if (username) {
-        const completed = await checkForGitHubStreak(username);
-        if (!completed) {
-            sendReminderEmail('GitHub', username);
+    for (const platform of platforms) {
+        if (platform.username) {
+            try {
+                const completed = await platform.checker(platform.username);
+                if (!completed) {
+                    sendReminderEmail(platform.name, platform.username);
+                }
+            } catch (error) {
+                console.error(`Error checking streak for ${platform.name}:`, error);
+            }
         }
     }
 });

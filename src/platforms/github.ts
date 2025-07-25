@@ -1,52 +1,92 @@
-\
-import axios from 'axios';
-import cheerio from 'cheerio';
+interface GitHubContributionsResponse {
+    data: {
+        user: {
+            contributionsCollection: {
+                contributionCalendar: {
+                    weeks: Array<{
+                        contributionDays: Array<{
+                            contributionCount: number;
+                            date: string;
+                        }>;
+                    }>;
+                };
+            };
+        };
+    };
+}
 
 export async function checkForGitHubStreak(username: string): Promise<boolean> {
     console.log(`Checking GitHub streak for ${username}...`);
     try {
-        const url = `https://github.com/${username}`;
-        const response = await axios.get(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-        });
-        const html = response.data;
-        const $ = cheerio.load(html);
-
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        const todayDateString = `${year}-${month}-${day}`;
-
-        let contributionsToday = 0;
-        $('.ContributionCalendar-day').each((i, el) => {
-            const dayDate = $(el).attr('data-date');
-            if (dayDate === todayDateString) {
-                const level = $(el).attr('data-level');
-                const countAttr = $(el).attr('data-count');
-                if (countAttr) {
-                     contributionsToday = parseInt(countAttr);
-                } else if (level) {
-                    contributionsToday = parseInt(level) > 0 ? 1 : 0;
+        // Using GitHub GraphQL API to get contributions data (same as contributions graph)
+        const graphqlQuery = `
+            query($username: String!) {
+                user(login: $username) {
+                    contributionsCollection {
+                        contributionCalendar {
+                            weeks {
+                                contributionDays {
+                                    contributionCount
+                                    date
+                                }
+                            }
+                        }
+                    }
                 }
-                return false;
             }
+        `;
+
+        const response = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.GITHUB_TOKEN || ''}`,
+            },
+            body: JSON.stringify({
+                query: graphqlQuery,
+                variables: { username }
+            }),
         });
-        
-        if (contributionsToday > 0) {
-            console.log(`GitHub: Contributions found for ${username} on ${todayDateString} (Count/Level: ${contributionsToday}).`);
-            return true;
+
+        if (!response.ok) {
+            console.log(`GitHub GraphQL API request failed for ${username}. Status: ${response.status}`);
+            // Fallback to checking if user exists via REST API
+            const userResponse = await fetch(`https://api.github.com/users/${username}`);
+            if (userResponse.ok) {
+                console.log(`User ${username} exists, but GraphQL API requires authentication. Assuming no activity.`);
+            }
+            return false;
         }
 
-        console.log(`GitHub: No contributions found for ${username} on ${todayDateString}. Check selectors if this is incorrect.`);
+        const data: GitHubContributionsResponse = await response.json();
+
+        if (!data.data?.user?.contributionsCollection?.contributionCalendar?.weeks) {
+            console.log(`No contributions data found for ${username}.`);
+            return false;
+        }
+
+        // Get today's date in YYYY-MM-DD format (UTC)
+        const today = new Date();
+        const todayString = today.toISOString().split('T')[0];
+        
+        console.log(`Checking contributions for today: ${todayString}`);
+
+        // Look for today's contributions in the calendar data (UTC only)
+        for (const week of data.data.user.contributionsCollection.contributionCalendar.weeks) {
+            for (const day of week.contributionDays) {
+                if (day.date === todayString && day.contributionCount > 0) {
+                    console.log(`GitHub activity found for ${username} today (UTC): ${day.contributionCount} contributions`);
+                    return true;
+                }
+            }
+        }
+
+        console.log(`No GitHub contributions found for ${username} today (UTC).`);
         return false;
 
     } catch (error) {
-        if (axios.isAxiosError(error)) {
-            console.error(`Error checking GitHub streak for ${username} (Axios Error):`, error.message, error.response?.status);
-        } else if (error instanceof Error) {
+        if (error instanceof Error) {
             console.error(`Error checking GitHub streak for ${username}:`, error.message);
         } else {
             console.error(`An unknown error occurred while checking GitHub streak for ${username}:`, error);
@@ -54,10 +94,3 @@ export async function checkForGitHubStreak(username: string): Promise<boolean> {
         return false;
     }
 }
-
-// Example usage (for testing purposes):
-// (async () => {
-//     const username = 'your-github-username'; // Replace with a valid GitHub username
-//     const completed = await checkForGitHubStreak(username);
-//     console.log(`GitHub streak completed today: ${completed}`);
-// })();
