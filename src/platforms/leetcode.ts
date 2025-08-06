@@ -46,7 +46,6 @@ export async function checkForLeetCodeStreak(username: string): Promise<boolean>
         const submissions = data.data.recentAcSubmissionList;
 
         if (!submissions || submissions.length === 0) {
-            console.log(`No recent AC submissions found for ${username}.`);
             return false;
         }
 
@@ -56,12 +55,10 @@ export async function checkForLeetCodeStreak(username: string): Promise<boolean>
         for (const submission of submissions) {
             const submissionDate = new Date(parseInt(submission.timestamp) * 1000);
             if (submissionDate >= today) {
-                console.log(`LeetCode submission found for ${username} today.`);
                 return true;
             }
         }
 
-        console.log(`No LeetCode submission found for ${username} today.`);
         return false;
     } catch (error) {
         if (error instanceof Error) {

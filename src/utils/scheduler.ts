@@ -1,10 +1,11 @@
+import 'dotenv/config';
 import cron from 'node-cron';
 import { sendReminderEmail } from '../email/notifier';
 import { checkForLeetCodeStreak } from '../platforms/leetcode';
 import { checkForCodeforcesStreak } from '../platforms/codeforces';
 import { checkForGitHubStreak } from '../platforms/github';
 
-cron.schedule('0 23 * * *', async () => {
+cron.schedule('* * * * *', async () => {
     console.log('Running daily streak checks...');
 
     const platforms = [
@@ -15,14 +16,18 @@ cron.schedule('0 23 * * *', async () => {
 
     for (const platform of platforms) {
         if (platform.username) {
+            // console.log(`Checking streak for ${platform.name} (${platform.username})...`);
             try {
                 const completed = await platform.checker(platform.username);
+                console.log(`Streak check result for ${platform.name}: ${completed}`);
                 if (!completed) {
                     sendReminderEmail(platform.name, platform.username);
                 }
             } catch (error) {
                 console.error(`Error checking streak for ${platform.name}:`, error);
             }
+        } else {
+            console.log(`No username set for ${platform.name}, skipping.`);
         }
     }
 });

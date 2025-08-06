@@ -50,11 +50,9 @@ export async function checkForGitHubStreak(username: string): Promise<boolean> {
         });
 
         if (!response.ok) {
-            console.log(`GitHub GraphQL API request failed for ${username}. Status: ${response.status}`);
             // Fallback to checking if user exists via REST API
             const userResponse = await fetch(`https://api.github.com/users/${username}`);
             if (userResponse.ok) {
-                console.log(`User ${username} exists, but GraphQL API requires authentication. Assuming no activity.`);
             }
             return false;
         }
@@ -62,7 +60,6 @@ export async function checkForGitHubStreak(username: string): Promise<boolean> {
         const data: GitHubContributionsResponse = await response.json();
 
         if (!data.data?.user?.contributionsCollection?.contributionCalendar?.weeks) {
-            console.log(`No contributions data found for ${username}.`);
             return false;
         }
 
@@ -70,19 +67,16 @@ export async function checkForGitHubStreak(username: string): Promise<boolean> {
         const today = new Date();
         const todayString = today.toISOString().split('T')[0];
         
-        console.log(`Checking contributions for today: ${todayString}`);
 
         // Look for today's contributions in the calendar data (UTC only)
         for (const week of data.data.user.contributionsCollection.contributionCalendar.weeks) {
             for (const day of week.contributionDays) {
                 if (day.date === todayString && day.contributionCount > 0) {
-                    console.log(`GitHub activity found for ${username} today (UTC): ${day.contributionCount} contributions`);
                     return true;
                 }
             }
         }
 
-        console.log(`No GitHub contributions found for ${username} today (UTC).`);
         return false;
 
     } catch (error) {

@@ -38,7 +38,6 @@ export async function checkForCodeforcesStreak(username: string): Promise<boolea
         const data: CodeforcesApiResponse = await response.json();
 
         if (data.status !== 'OK' || !data.result || data.result.length === 0) {
-            console.log(`No recent submissions found for ${username} from Codeforces API.`);
             return false;
         }
 
@@ -50,12 +49,10 @@ export async function checkForCodeforcesStreak(username: string): Promise<boolea
             submissionDate.setHours(0, 0, 0, 0);
             
             if (submissionDate.getTime() === today.getTime()) {
-                console.log(`Codeforces submission found for ${username} today.`);
                 return true;
             }
         }
 
-        console.log(`No Codeforces submission found for ${username} today.`);
         return false;
 
     } catch (error) {
